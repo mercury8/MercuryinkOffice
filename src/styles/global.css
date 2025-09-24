@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@source "../../node_modules/@wp-block-tools/styles";
+/* Import Adobe Fonts CSS */
+
+@theme {
+}
