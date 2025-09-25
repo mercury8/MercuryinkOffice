@@ -1,24 +1,16 @@
-// @ts-check
+// astro.config.mjs
 import { defineConfig } from "astro/config";
-// import tailwind from "@astrojs/tailwind";
-import tailwindcss from "@tailwindcss/vite";
-import { loadEnv } from "vite";
-import react from "@astrojs/react";
-const { PUBLIC_WP_URL } = loadEnv(process.env.NODE_ENV, process.cwd(), "");
+import node from "@astrojs/node";
+
 // https://astro.build/config
 export default defineConfig({
-  image: {
-    domains: [PUBLIC_WP_URL],
-  },
+  output: "server", // ← This enables SSR
+  adapter: node({
+    mode: "standalone",
+  }),
 
-  // integrations: [
-  //   tailwind({
-  //     applyBaseStyles: false,
-  //   }),
-  // ],
+  // Your existing vite configuration (if any)
   vite: {
-    plugins: [tailwindcss()],
+    // Keep your existing vite settings here
   },
-
-  integrations: [react()],
 });

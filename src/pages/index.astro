@@ -1,0 +1,83 @@
+---
+// src/pages/index.astro
+import CommonHead from "../components/CommonHead.astro";
+
+// Fetch recent posts for homepage
+async function getRecentPosts() {
+  const WORDPRESS_GRAPHQL_URL = import.meta.env.WORDPRESS_GRAPHQL_URL;
+
+  const query = `
+    query GetRecentPosts {
+      posts(first: 10) {
+        nodes {
+          title
+          excerpt
+          slug
+          date
+          featuredImage {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch(WORDPRESS_GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query })
+    });
+
+    const { data } = await response.json();
+    return data.posts.nodes;
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    return [];
+  }
+}
+
+const recentPosts = await getRecentPosts();
+---
+
+<html lang="en">
+  <head>
+    <CommonHead />
+    <title>Home - Your Site Name</title>
+    <meta name="description" content="Welcome to our website" />
+  </head>
+  
+  <body>
+    <header>
+      <nav>
+        <a href="/">Home</a>
+        <!-- Navigation links -->
+      </nav>
+    </header>
+
+    <main>
+      <section>
+        <h1>Welcome to Our Site</h1>
+        <p>This is our SSR-powered Astro homepage.</p>
+      </section>
+
+      <section>
+        <h2>Recent Posts</h2>
+        <div>
+          {recentPosts.map(post => (
+            <article>
+              <h3><a href={`/${post.slug}`}>{post.title}</a></h3>
+              <div set:html={post.excerpt}></div>
+              <a href={`/${post.slug}`}>Read More</a>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

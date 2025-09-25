@@ -1,73 +1,144 @@
-
 ---
-import "../styles/global.css";
-import type { Block } from '@wp-block-tools/styles';
+// src/pages/[...slug].astro
 import BlockRenderer from "../components/BlockRenderer.astro";
 import CommonHead from "../components/CommonHead.astro";
 
+// WordPress GraphQL API configuration
+const WORDPRESS_GRAPHQL_URL = import.meta.env.WORDPRESS_GRAPHQL_URL || 'https://stupefied-lamport.77-68-32-117.plesk.page/WP/graphql';
+const WORDPRESS_APP_PASSWORD = import.meta.env.WORDPRESS_APPLICATION_PASSWORD;
 
-export async function getStaticPaths() {
-	const response = await fetch(`${import.meta.env.WPGRAPHQL_URL}`, {
-		method: "POST",
-		headers: {
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({
-			query: `
-			query AllPages {
-				pages(first: 10000) {
-					nodes {
-					uri
-					
-					}
-				}
-				}`,
-		}),
-	});
-	const {data} = await response.json();
-	return data.pages.nodes.map((page: any) => ({
-		params: { slug: page.uri === "/" ? undefined : page.uri },
+// Fetch page data from WordPress (runs on every request)
+async function getPageData(slug) {
+  if (!slug) return null;
 
-	}));
+  const query = `
+    query GetPageBySlug($slug: String!) {
+      pageBy(uri: $slug) {
+        title
+        content
+        excerpt
+        slug
+        date
+        status
+        featuredImage {
+          node {
+            sourceUrl
+            altText
+          }
+        }
+        seo {
+          title
+          metaDesc
+          canonical
+        }
+      }
+    }
+  `;
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add authentication if needed
+    if (WORDPRESS_APP_PASSWORD) {
+      headers['Authorization'] = `Basic ${btoa(`username:${WORDPRESS_APP_PASSWORD}`)}`;
+    }
+
+    const response = await fetch(WORDPRESS_GRAPHQL_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query,
+        variables: { slug }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const { data, errors } = await response.json();
+
+    if (errors) {
+      console.error('GraphQL Errors:', errors);
+      return null;
+    }
+
+    return data.pageBy;
+  } catch (error) {
+    console.error('Error fetching WordPress data:', error);
+    return null;
+  }
 }
 
-const response = await fetch(`${import.meta.env.WPGRAPHQL_URL}`, {
-	method: "POST",
-	headers: {
-		"content-type": "application/json",
-	},
-	body: JSON.stringify({
-		query: `
-		query PageQuery($uri: String!) {
-			nodeByUri(uri: $uri) {
-				... on Page {
-				id	
-				blocks
-					seo {
-						title
-						metaDesc
-					}
-				}
-			}
-		}
-			`,
-			variables: {
-				uri: Astro.params.slug || "/",
-			},
-	}),
-});
+// Get the slug from the URL parameters
+const { slug } = Astro.params;
 
-const { data } = await response.json();
+// Fetch the page data (this happens on the server for each request)
+const pageData = await getPageData(slug);
 
+// Set 404 status if page not found
+if (!pageData) {
+  Astro.response.status = 404;
+}
 
-const blocks= (data.nodeByUri?.blocks || []) as Block[];
-const seo = data.nodeByUri?.seo;
+// Set the page title for SEO
+const pageTitle = pageData?.title || 'Page Not Found';
 ---
 
-<!doctype html>
 <html lang="en">
-<CommonHead title={seo.title || ""} description={seo.metaDesc || ""} />
-	<body>
-		<BlockRenderer blocks={blocks} />
-	</body>
+  <head>
+    <CommonHead />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageData?.seo?.metaDesc || pageData?.excerpt || ''} />
+    
+    <!-- Open Graph tags -->
+    <meta property="og:title" content={pageData?.seo?.title || pageTitle} />
+    <meta property="og:description" content={pageData?.seo?.metaDesc || pageData?.excerpt || ''} />
+    <meta property="og:type" content="website" />
+    
+    {pageData?.featuredImage?.node?.sourceUrl && (
+      <meta property="og:image" content={pageData.featuredImage.node.sourceUrl} />
+    )}
+  </head>
+  
+  <body>
+    <header>
+      <!-- Your header/navigation component -->
+      <nav>
+        <a href="/">Home</a>
+        <!-- Add other navigation links -->
+      </nav>
+    </header>
+
+    <main>
+      {pageData ? (
+        <article>
+          <h1>{pageData.title}</h1>
+          
+          {pageData.featuredImage?.node?.sourceUrl && (
+            <img 
+              src={pageData.featuredImage.node.sourceUrl} 
+              alt={pageData.featuredImage.node.altText || pageData.title}
+              style="max-width: 100%; height: auto;"
+            />
+          )}
+          
+          <div set:html={pageData.content}></div>
+        </article>
+      ) : (
+        <section>
+          <h1>Page Not Found</h1>
+          <p>Sorry, the page you're looking for doesn't exist.</p>
+          <a href="/">Return to Homepage</a>
+        </section>
+      )}
+    </main>
+
+    <footer>
+      <!-- Your footer component -->
+      <p>&copy; 2024 Your Website. All rights reserved.</p>
+    </footer>
+  </body>
 </html>
