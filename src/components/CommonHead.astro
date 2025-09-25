@@ -34,6 +34,7 @@ const {title, description, image} = Astro.props;
 		<title>{title}</title>
         <meta name="description" content={description} />
 		<link rel="stylesheet" href="https://use.typekit.net/yvv5bxn.css">
+		
 
 		{!!data.cssVariables && <style set:html={`:root{${data.cssVariables}}`} />}
 	</head>

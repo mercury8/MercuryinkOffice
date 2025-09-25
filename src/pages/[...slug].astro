@@ -1,10 +1,10 @@
 
 ---
-import "./src/styles/global.css";
+import "../styles/global.css";
 import type { Block } from '@wp-block-tools/styles';
 import BlockRenderer from "../components/BlockRenderer.astro";
 import CommonHead from "../components/CommonHead.astro";
-import { undefined } from "astro:schema";
+
 
 export async function getStaticPaths() {
 	const response = await fetch(`${import.meta.env.WPGRAPHQL_URL}`, {
